@@ -1,0 +1,92 @@
+:root{
+    --bg-color: #1d8236;
+    --border-color: #faf9f5;
+    --card-width: 100px;
+    --card-height: 150px;
+}
+
+body{
+    margin: 0;
+    background-color: var(--bg-color);
+}
+
+
+.playground{
+    min-height: 100vh;
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+}
+
+
+header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 100px;
+}
+
+/* wrappers styles for pile, store and foundation wrappers*/
+
+.store-wrapper{
+    display: flex;
+}
+
+.foundation-wrapper{
+    display: flex;
+}
+
+.pile-wrapper{
+    display: flex;
+    justify-content: space-between;
+    flex-grow: 1;
+    padding: 0 60px;
+}
+
+
+/* components styles (pile, store, foundation) */
+
+.store, .foundation, .pile{
+    width: var(--card-width);
+    height: var(--card-height);
+    margin-right: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+
+.foundation:last-child, 
+.store:last-child,
+.pile:last-child{
+    margin-right: 0px;
+}
+
+
+.deck{
+    position: absolute;
+    bottom: -60px;
+    right: 30px;
+    width: var(--card-width);
+    height: var(--card-height);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.deck.hidden{
+    display: none;
+}
+
+/* card styles*/
+
+.card{
+    position: absolute;
+    width: var(--card-width);
+    height: var(--card-height);
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+
+.card.selected{
+    filter: drop-shadow(4px 4px 10px hsl(0deg, 0%, 85%));
+}
