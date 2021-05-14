@@ -202,6 +202,11 @@ class Pile{
         card.dom.setZIndex(this.cards.length);
         card.addWrapper(this);
     }
+
+    isValidMove(cards){
+        const lastCard = this.cards[this.cards.length - 1];
+        return this.isValidSeq([lastCard, ...cards]);
+    }
 }
 
 
@@ -262,6 +267,11 @@ class Foundation{
     isEmpty(){
         return this.cards.length === 0;
     }
+
+    isValidMove(cards){
+        let lastCard = this.cards[this.cards.length - 1];
+        return this.isValidSeq([lastCard, ...cards]);
+    }
 }
 
 
@@ -301,6 +311,10 @@ class Store{
     isValidSeq(cards){
         if(cards.lengtht === 1 && this.isEmpty()) return true;
         return false;
+    }
+
+    isValidMove(cards){
+        return this.isValidSeq(cards);
     }
 }
 
@@ -389,12 +403,15 @@ class Playground{
     }
 
     transferCards(to){
-        if(this.selectedCards.length > this.allowedCardsToMove(to)) return;
+        if(this.selectedCards.length > this.allowedCardsToMove(to) 
+                || !to.isValidMove(this.selectedCards)) return;
+
         this.selectedCards.forEach(c => {
             if(to !== c.wrapper){
                 c.wrapper.removeCard(c)
             }
         });
+        
         this.selectedCards.forEach((c, i) => {
             to.addCard(c);
             c.transferToWrapper(i * 30);
