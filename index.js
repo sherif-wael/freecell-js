@@ -104,7 +104,7 @@ class Card{
 
     handleMouseDown(e){
         e.preventDefault();
-
+        console.log(this)
         const playground = this.wrapper.playground;
 
         if(!playground.hasSelectedCards()){
@@ -117,7 +117,7 @@ class Card{
         const handleMove = moveEvent => {
             if(moveEvent.buttons === 0){
                 document.removeEventListener("mousemove", handleMove);
-                // playground.attachCardsToNearest();
+                playground.attachCardsToNearest();
                 return;
             }
             e.preventDefault();
@@ -185,7 +185,7 @@ class Pile{
         if(this.isValidSeq([lastCard, card])){
             this.cards.push(card);
             card.addWrapper(this);
-            card.dom.setZIndex(this.cards.length);
+            card.dom.setNewIndex(this.cards.length);
         }
     }
 
@@ -199,12 +199,13 @@ class Pile{
 
     pushCard(card){
         this.cards.push(card);
-        card.dom.setZIndex(this.cards.length);
+        card.dom.setNewIndex(this.cards.length);
         card.addWrapper(this);
     }
 
     isValidMove(cards){
         const lastCard = this.cards[this.cards.length - 1];
+        if(!lastCard) return this.isValidSeq(cards);
         return this.isValidSeq([lastCard, ...cards]);
     }
 }
@@ -245,7 +246,7 @@ class Foundation{
         if(this.isEmpty()){
             this.cards.push(card);
             card.addWrapper(this);
-            card.dom.setZIndex(this.cards.length);
+            card.dom.setNewIndex(this.cards.length);
             return;
         }
 
@@ -255,7 +256,7 @@ class Foundation{
         if(this.isValidSeq(arr)){
             this.cards.push(card);
             card.addWrapper(this);
-            card.dom.setZIndex(this.cards.length);
+            card.dom.setNewIndex(this.cards.length);
         }
     }
 
@@ -270,6 +271,7 @@ class Foundation{
 
     isValidMove(cards){
         let lastCard = this.cards[this.cards.length - 1];
+        if(!lastCard) return this.isValidSeq(cards);
         return this.isValidSeq([lastCard, ...cards]);
     }
 }
@@ -296,7 +298,7 @@ class Store{
         if(this.isEmpty()){
             this.cards.push(card);
             card.addWrapper(this)
-            card.dom.setZIndex(this.cards.length);
+            card.dom.setNewIndex(this.cards.length);
         }
     }
 
@@ -392,13 +394,17 @@ class Playground{
 
     select(cards){
         this.selectedCards = cards;
-        this.selectedCards.forEach(c => {
+        this.selectedCards.forEach((c, i) => {
             c.dom.select();
+            c.dom.setZIndex(100 + i)
         })
     }
 
     unselect(){
-        this.selectedCards.forEach(c => c.dom.unselect());
+        this.selectedCards.forEach(c => {
+            c.dom.unselect();
+            c.dom.setNewIndex(c.dom.zIndex);
+        });
         this.selectedCards = [];
     }
 
@@ -411,7 +417,7 @@ class Playground{
                 c.wrapper.removeCard(c)
             }
         });
-        
+
         this.selectedCards.forEach((c, i) => {
             to.addCard(c);
             c.transferToWrapper(i * 30);
@@ -424,23 +430,23 @@ class Playground{
     
     attachCardsToNearest(){
         if(!this.hasSelectedCards()) return; 
-        const firstCard = this.selectedCards[0];
-        const pos = firstCard.dom.getCurrentPos();
-        const a1 = {x: pos.x, y: pos.y}, a2 = {x: pos.x + pos.width, y: pos.y + pos.height};
-        const allComponents = [...this.piles, ...this.stores, ...this.foundations];
+        let firstCard = this.selectedCards[0];
+        let pos = firstCard.dom.getCurrentPos();
+        let r1 = {left: pos.left, right: pos.left + pos.width, top: pos.top, bottom: pos.top + pos.height};
+        let allComponents = [...this.piles, ...this.stores, ...this.foundations];
 
         for(let c of allComponents){
-            const cPos = c.dom.getCurrentPos();
-            const b1 = {x: cPos.x, y: cPos.y}, b2 = {x: cPos.x + cPos.width, y: cPos.y + cPos.height};
-
-            if(doOverlap(a1, a2, b1, b2) && c.isValidSeq(this.selectedCards)){
+            let cPos = c.dom.getCurrentPos();
+            let r2 = {left: cPos.left, right: cPos.left + cPos.width, top: cPos.top, bottom: cPos.top + cPos.height};
+                
+            if(doOverlap(r1, r2) && c.isValidMove(this.selectedCards)){
                 this.transferCards(c);
                 this.unselect();
                 return;
             }
         }
 
-        this.transferCards(firstCard.wrapper);
+        this.selectedCards.forEach((c, i) => c.transferToWrapper(i));
     }
 
     createDOM(){
@@ -498,9 +504,10 @@ function elt(elem, props, ...children){
 
 
 class CardElement{
-    constructor(left, top, rank, suit){
+    constructor(left, top, rank, suit, zIndex){
         this.left = left;
         this.top = top;
+        this.zIndex = zIndex;
         const id = this.createId(rank, suit);
         this.element = elt("img", {className: "card", src: `/cards/${id}.png`, id});
     }
@@ -552,6 +559,11 @@ class CardElement{
 
     setZIndex(zIndex){
         this.element.style.zIndex = zIndex
+    }
+
+    setNewIndex(index){
+        this.zIndex = index;
+        this.element.style.zIndex = this.zIndex;
     }
 }
 
@@ -624,18 +636,12 @@ class PlaygroundElement{
 }
 
 
-// checks if rectangle A overlaps rectangleB
-
-function doOverlap(a1, a2, b1, b2){
-    if(a1.x === b1.x || a1.y === b2.y || a2.x === b2.x || a2.y === b2.y) return false;
-
-    if(a1.x >= b2.x || a2.x >= b1.x) return false;
-
-    if(a1.y <= b2.y || a2.y <= b1.y) return false;
-
-    return true;
+function doOverlap(r1, r2){
+    return !(r2.left > r1.right || 
+        r2.right < r1.left || 
+        r2.top > r1.bottom ||
+        r2.bottom < r1.top);
 }
-
 
 
 const playground = factory.createPlayground();
