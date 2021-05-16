@@ -92,8 +92,11 @@ class Card{
         let GAP = 30;
 
         if(this.wrapper.type === "pile"){
-            top += (GAP * (this.wrapper.size - 1));
+            top += GAP * this.wrapper.cards.findIndex(c => c === this);
         }
+
+        top += pageYOffset;
+        left += pageXOffset;
 
         this.dom.setNewPos(top, left, ms);
     }
@@ -104,7 +107,7 @@ class Card{
 
     handleMouseDown(e){
         e.preventDefault();
-        console.log(this)
+        e.stopPropagation();
         const playground = this.wrapper.playground;
 
         if(!playground.hasSelectedCards()){
@@ -140,6 +143,7 @@ class Pile{
         this.cards = cards;
         this.playground = playground;
         this.dom = new PileElement();
+        this.dom.element.onmousedown = e => this.handleMouseDown(e);
     }
 
     get size(){
@@ -176,7 +180,7 @@ class Pile{
         if(this.isEmpty()){
             this.cards.push(card);
             card.addWrapper(this);
-            card.dom.setZIndex(this.cards.length);
+            card.dom.setNewIndex(this.cards.length);
             return;
         }
         
@@ -208,6 +212,12 @@ class Pile{
         if(!lastCard) return this.isValidSeq(cards);
         return this.isValidSeq([lastCard, ...cards]);
     }
+
+    handleMouseDown(e){
+        if(this.isEmpty()){
+            this.playground.transferCards(this);
+        }
+    }
 }
 
 
@@ -217,6 +227,7 @@ class Foundation{
         this.cards = cards;
         this.playground = playground;
         this.dom = new FoundationElement();
+        this.dom.element.onmousedown = e => this.handleMouseDown(e);
     }
 
     get size(){
@@ -224,10 +235,10 @@ class Foundation{
     }
 
     isValidSeq(cards){
-        const currentCard = cards[0];
+        let currentCard = cards[0];
 
         for(let i = 1; i < cards.length; i++){
-            if(cards[i].isHigherByOne(currentCard) && cards[i].hasSameColor(currentCard)){
+            if(cards[i].isHigherByOne(currentCard) && cards[i].hasSameSuit(currentCard)){
                 currentCard = cards[i];
             }else{
                 return false;
@@ -243,7 +254,7 @@ class Foundation{
     }
 
     addCard(card){
-        if(this.isEmpty()){
+        if(this.isEmpty() && card.rank === "A"){
             this.cards.push(card);
             card.addWrapper(this);
             card.dom.setNewIndex(this.cards.length);
@@ -261,7 +272,6 @@ class Foundation{
     }
 
     removeCard(card){
-        console.log(card);
         this.cards = this.cards.filter(c => c !== card);
     }
 
@@ -270,9 +280,17 @@ class Foundation{
     }
 
     isValidMove(cards){
+        if(this.isEmpty() && cards[0].rank === "A") return true;
+
         let lastCard = this.cards[this.cards.length - 1];
-        if(!lastCard) return this.isValidSeq(cards);
+
+        if(!lastCard) return false;
+
         return this.isValidSeq([lastCard, ...cards]);
+    }
+
+    handleMouseDown(e){
+        this.playground.transferCards(this);
     }
 }
 
@@ -284,6 +302,7 @@ class Store{
         this.cards = cards;
         this.playground = playground;
         this.dom = new StoreElement();
+        this.dom.element.onmousedown = e => this.handleMouseDown(e);
     }
 
     get size(){
@@ -311,12 +330,16 @@ class Store{
     }
 
     isValidSeq(cards){
-        if(cards.lengtht === 1 && this.isEmpty()) return true;
+        if(cards.length === 1 && this.isEmpty()) return true;
         return false;
     }
 
     isValidMove(cards){
         return this.isValidSeq(cards);
+    }
+
+    handleMouseDown(e){
+        this.playground.transferCards(this);
     }
 }
 
@@ -408,10 +431,11 @@ class Playground{
         this.selectedCards = [];
     }
 
+    // state transitions
     transferCards(to){
         if(this.selectedCards.length > this.allowedCardsToMove(to) 
                 || !to.isValidMove(this.selectedCards)) return;
-
+        
         this.selectedCards.forEach(c => {
             if(to !== c.wrapper){
                 c.wrapper.removeCard(c)
@@ -422,8 +446,11 @@ class Playground{
             to.addCard(c);
             c.transferToWrapper(i * 30);
         });
+
+        this.unselect();
     }
-    
+
+    // UI transition through top and left css props
     moveCards(dx, dy){
         this.selectedCards.forEach((c, i) => c.move(dx, dy, i * 30));
     }
@@ -438,7 +465,7 @@ class Playground{
         for(let c of allComponents){
             let cPos = c.dom.getCurrentPos();
             let r2 = {left: cPos.left, right: cPos.left + cPos.width, top: cPos.top, bottom: cPos.top + cPos.height};
-                
+            
             if(doOverlap(r1, r2) && c.isValidMove(this.selectedCards)){
                 this.transferCards(c);
                 this.unselect();
@@ -473,16 +500,32 @@ class Playground{
         }
 
         this.deck.cards = [];
+        this.deck.hideDeck();
     }
 
     allowedCardsToMove(to){
         let emptyStores = this.stores.reduce((acc, s) => s.isEmpty() ? acc + 1 : acc, 0);
         let emptyPiles = this.piles.reduce((acc, p) => p.isEmpty() ? acc + 1 : acc, 0);
 
-        emptyPiles = !to ? emptyPiles : to.isEmpty() ? emptyPiles - 1 : emptyPiles;
+       if(to && to.type === "pile" && to.isEmpty()){
+           emptyPiles -= 1;
+       }
 
         return (emptyStores + 1) * (emptyPiles + 1);
     }
+
+    restructureCards(){
+        this.piles.forEach(p => {
+            p.cards.forEach(c => c.transferToWrapper(0));
+        });
+        this.foundations.forEach(f => {
+            f.cards.forEach(c => c.transferToWrapper(0));
+        });
+        this.stores.forEach(s => {
+            s.cards.forEach(c => c.transferToWrapper(0));
+        })
+    }
+
 }
 
 
@@ -647,5 +690,13 @@ function doOverlap(r1, r2){
 const playground = factory.createPlayground();
 document.body.appendChild(playground.dom.element);
 
+
+// document.addEventListener("scroll", () => {
+//     playground.restructureCards();
+// })
+
+// window.addEventListener("resize", () => {
+//     playground.restructureCards();
+// })
 
 setTimeout(() => playground.distributeCards(), 2000);

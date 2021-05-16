@@ -1,6 +1,6 @@
 :root{
     --bg-color: #1d8236;
-    --border-color: #faf9f5;
+    --border-color: #ebe9e1;
     --card-width: 100px;
     --card-height: 150px;
 }
@@ -46,12 +46,12 @@ header{
 
 /* components styles (pile, store, foundation) */
 
-.store, .foundation, .pile{
-    width: var(--card-width);
-    height: var(--card-height);
+.store, .foundation, .pile, .deck{
+    width: calc(var(--card-width) - 5px);
+    height: calc(var(--card-height) - 5px);
     margin-right: 20px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 
@@ -66,10 +66,7 @@ header{
     position: absolute;
     bottom: -60px;
     right: 30px;
-    width: var(--card-width);
-    height: var(--card-height);
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
+    margin-right: 0px;
 }
 
 .deck.hidden{
@@ -83,10 +80,21 @@ header{
     width: var(--card-width);
     height: var(--card-height);
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 
 .card.selected{
     filter: drop-shadow(4px 4px 10px hsl(0deg, 0%, 85%));
+}
+
+
+.card{
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+                                        supported by Chrome, Edge, Opera and Firefox */
 }
