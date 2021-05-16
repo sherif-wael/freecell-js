@@ -466,6 +466,8 @@ class Playground{
 
     // state transitions
     transferCards(to){
+        if(!this.hasSelectedCards()) return;
+
         if(this.selectedCards.length > this.allowedCardsToMove(to) 
                 || !to.isValidMove(this.selectedCards)) return;
         
@@ -873,7 +875,13 @@ class App{
     }
 
     endGame(){
-        console.log(`game won in ${this.analyzer.moves} moves`);
+        console.log("game won")
+        let p = elt("p", null, `Congratulations You Have Won in ${this.analyzer.moves} Moves`);
+        let btn = elt("button", {onclick: e => this.restart()}, "Play Again");
+        let congrats = elt("div", {className: "congrats"}, 
+                            p, btn
+                        );
+        document.body.appendChild(congrats);
     }
 
     undo(){
