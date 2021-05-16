@@ -81,6 +81,7 @@ class Card{
         this.dom = new CardElement(0, 0, rank, suit);
         document.body.appendChild(this.dom.element);
         this.dom.element.onmousedown = e => this.handleMouseDown(e);
+        this.dom.element.ondblclick = e => this.handleDoubleClick(e);
     }
 
     hasSameColor(card){
@@ -150,6 +151,25 @@ class Card{
         e.currentTarget.ondrag = () => false;
     } 
 
+    handleDoubleClick(){
+        let playground = this.wrapper.playground;
+
+        let foundation = playground.cardFitsInFoundation(this);
+        console.log(foundation);
+        if(foundation){
+            playground.select([this]);
+            playground.transferCards(foundation);
+            return;
+        }
+
+        let store = playground.cardFitsInStore(this);
+
+        if(store){
+            playground.select([this]);
+            playground.transferCards(store);
+            return;
+        }
+    }
 }
 
 
@@ -581,6 +601,19 @@ class Playground{
         })
     }
 
+    cardFitsInFoundation(card){
+        for(let f of this.foundations){
+            if(f.isValidMove([card])) return f;
+        }
+        return null;
+    }
+
+    cardFitsInStore(card){
+        for(let s of this.stores){
+            if(s.isValidMove([card])) return s;
+        }
+        return null;
+    }
 }
 
 
