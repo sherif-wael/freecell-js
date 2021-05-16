@@ -23,6 +23,16 @@ const SUITS_COLOR = {
     club: "black"
 }
 
+// helpers
+
+function doOverlap(r1, r2){
+    return !(r2.left > r1.right || 
+        r2.right < r1.left || 
+        r2.top > r1.bottom ||
+        r2.bottom < r1.top);
+}
+
+
 // Factory
 
 const factory = {
@@ -43,12 +53,18 @@ const factory = {
         deck.fillDeck();
         return deck;
     },
-    createPlayground(){
-        const playground = new Playground();
+    createPlayground(app){
+        const playground = new Playground(app);
         playground.init();
         playground.deck.fillDeck();
         playground.createDOM();
         return playground;
+    },
+    createGameAnalyzer(){
+        return new GameAnalyzer();
+    },
+    createTimer(){
+        return new Timer(0);
     }
 }
 
@@ -292,6 +308,12 @@ class Foundation{
     handleMouseDown(e){
         this.playground.transferCards(this);
     }
+
+    pushCard(card){
+        this.cards.push(card);
+        card.addWrapper(this);
+        card.dom.setNewIndex(this.cards.length);
+    }
 }
 
 
@@ -341,6 +363,12 @@ class Store{
     handleMouseDown(e){
         this.playground.transferCards(this);
     }
+
+    pushCard(card){
+        this.cards.push(card);
+        card.addWrapper(this)
+        card.dom.setNewIndex(this.cards.length);
+    }
 }
 
 
@@ -382,11 +410,16 @@ class Deck{
     displayDeck(){
         this.dom.displayDeck();
     }
+
+    isValidMove(cards){
+        return true;
+    }
 }
 
 
 class Playground{
-    constructor(piles, foundations, stores, selected){
+    constructor(app, piles, foundations, stores, selected){
+        this.app = app;
         this.piles = piles;
         this.foundations = foundations;
         this.stores = stores;
@@ -436,6 +469,8 @@ class Playground{
         if(this.selectedCards.length > this.allowedCardsToMove(to) 
                 || !to.isValidMove(this.selectedCards)) return;
         
+        let from = this.selectedCards[0].wrapper;
+
         this.selectedCards.forEach(c => {
             if(to !== c.wrapper){
                 c.wrapper.removeCard(c)
@@ -444,6 +479,24 @@ class Playground{
 
         this.selectedCards.forEach((c, i) => {
             to.addCard(c);
+            c.transferToWrapper(i * 30);
+        });
+
+        this.app.handleUserAction({cards: this.selectedCards, from, to});
+
+        this.unselect();
+    }
+
+
+    pushCards(to){
+        this.selectedCards.forEach(c => {
+            if(to !== c.wrapper){
+                c.wrapper.removeCard(c)
+            }
+        });
+
+        this.selectedCards.forEach((c, i) => {
+            to.pushCard(c);
             c.transferToWrapper(i * 30);
         });
 
@@ -647,7 +700,9 @@ class StoreElement extends PlaygroundElements{
 class DeckElement extends PlaygroundElements{
     constructor(){
         super();
-        this.element = elt("div", {className: "deck"});
+        this.element = elt("div", {className: "deck"}, 
+                            elt("img", {src: "./cards/red_back.png", className: "flipped-card card"})
+                        );
         document.body.appendChild(this.element);
     }
 
@@ -679,24 +734,169 @@ class PlaygroundElement{
 }
 
 
-function doOverlap(r1, r2){
-    return !(r2.left > r1.right || 
-        r2.right < r1.left || 
-        r2.top > r1.bottom ||
-        r2.bottom < r1.top);
+// app components 
+
+
+class Timer{
+    intervalId;
+
+    constructor(seconds){
+        this.seconds = seconds;
+        this.dom = elt("p", {className: "timer"});
+    }
+
+    start(){
+        this.intervalId = setInterval(() => {
+            this.seconds += 1;
+            this.displayCurrentSeconds();
+        }, 1000)
+    }
+
+    stop(){
+        if(this.intervalId){
+            clearInterval(this.intervalId);
+        }
+    }
+    
+    secondsToString(seconds){
+        // let h = Math.floor(seconds / 3600);
+        let m = Math.floor(seconds % 3600 / 60);
+        let s = seconds % 60;
+
+        const convert = (v) => {
+            return `${v}`.padStart(2, "0");
+        }
+
+        return `${convert(m)}:${convert(s)}`;
+    }
+
+    displayCurrentSeconds(){
+        const str = this.secondsToString(this.seconds);
+        this.dom.innerHTML = str;
+    }
+
+    clear(){
+        this.stop();
+        this.dom.innerHTML = "";
+    }
 }
 
 
-const playground = factory.createPlayground();
-document.body.appendChild(playground.dom.element);
+class GameAnalyzer{
+    constructor(){
+        this.moves = 0;
+    }
+
+    incMoves(v){
+        this.moves += v;
+    }
+
+    hasWon(playground){
+        return playground.piles.every(p => p.isValidSeq(p.cards));
+    }
+}
 
 
-// document.addEventListener("scroll", () => {
-//     playground.restructureCards();
-// })
+class Button{
+    constructor(label, className, onclick){
+        this.dom = elt("button", {className, onclick}, label);
+    }
+}
 
-// window.addEventListener("resize", () => {
-//     playground.restructureCards();
-// })
 
-setTimeout(() => playground.distributeCards(), 2000);
+// Undo class
+
+class UndoHistory{
+    constructor(history){
+        this.history = history;
+    }
+
+    add(action){
+        this.history.push(action);
+    }
+
+    back(){
+        this.history = this.history.slice(0, this.history.length - 1);
+    }
+
+    get lastAction(){
+        return this.history[this.history.length - 1];
+    }
+}
+
+
+class AppControllers{
+    constructor(handlers){
+        this.startButton = new Button("start", "start-btn", handlers.start);
+        this.restartButton = new Button("restart", "restart-btn", handlers.restart);
+        this.undoButton = new Button("undo", "undo-btn", handlers.undo);
+        this.dom = elt("div", {className: "controllers"}, 
+                            this.startButton.dom, this.restartButton.dom, this.undoButton.dom);
+    }
+}
+
+class App{
+    constructor(){
+        this.started = false;
+        this.timer = factory.createTimer();
+        this.analyzer = factory.createGameAnalyzer();
+        this.playground = factory.createPlayground(this);
+        this.appButtons = new AppControllers({
+            start: this.start.bind(this),
+            restart: this.restart.bind(this),
+            undo: this.undo.bind(this)
+        });
+        this.undo = new UndoHistory([]);
+        this.dom = elt("div", null, this.playground.dom.element,
+                            elt("div", {className: "options"}, this.timer.dom, this.appButtons.dom));
+    }
+
+    start(){
+        if(!this.started){
+            this.started = true;
+            this.playground.distributeCards();
+            this.timer.start();
+        }
+    }
+
+    restart(){
+        location.reload();
+    }
+
+    handleUserAction(action){
+        this.undo.add(action);
+        this.analyzer.incMoves(1);
+        
+        if(this.analyzer.hasWon(this.playground)){
+            this.endGame();
+        }
+    }
+
+    endGame(){
+        console.log(`game won in ${this.analyzer.moves} moves`);
+    }
+
+    undo(){
+        if(this.analyzer.moves === 0) return;
+
+        this.analyzer.incMoves(-1);
+
+        let lastAction = this.undo.lastAction;
+
+        lastAction.cards.forEach(c => c.addWrapper(lastAction.to));
+
+        this.playground.select(lastAction.cards);
+
+        this.playground.pushCards(lastAction.from);
+
+        this.undo.back();
+    }
+}
+
+
+function runApp(){
+    const app = new App();
+    document.body.appendChild(app.dom);
+}
+
+runApp();

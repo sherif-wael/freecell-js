@@ -98,3 +98,40 @@ header{
     user-select: none; /* Non-prefixed version, currently
                                         supported by Chrome, Edge, Opera and Firefox */
 }
+
+.flipped-card{
+    z-index: 100;
+}
+
+/* controllers styles */
+
+
+.timer{
+    margin: 0 10px 0 0 ;
+    font-size: 14px;
+    color: #fff;
+    font-weight: lighter;
+    font-family: sans-serif;
+}
+
+.options{
+    position: fixed;
+    top: 10px;
+    right: 30px;
+    display: flex;
+    align-items: center;
+}
+
+.controllers{
+    display: flex;
+}
+
+.controllers button{
+    margin-right: 3px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.controllers button:last-child{
+    margin-right: 0px;
+}
